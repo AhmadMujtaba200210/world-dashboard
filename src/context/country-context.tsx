@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useCallback, useContext, useMemo, useState, ReactNode } from "react"
 
 // Country data enrichment – maps ISO A3 codes to useful metadata
 export const COUNTRY_DATA: Record<string, {
@@ -73,18 +73,22 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
     const [selectedCountryName, setSelectedCountryName] = useState<string | null>(null)
 
-    const selectCountry = (isoA3: string, name: string) => {
+    const selectCountry = useCallback((isoA3: string, name: string) => {
         setSelectedCountry(isoA3)
         setSelectedCountryName(name)
-    }
+    }, [])
 
-    const clearCountry = () => {
+    const clearCountry = useCallback(() => {
         setSelectedCountry(null)
         setSelectedCountryName(null)
-    }
+    }, [])
+
+    const value = useMemo(() => ({
+        selectedCountry, selectedCountryName, selectCountry, clearCountry
+    }), [selectedCountry, selectedCountryName, selectCountry, clearCountry])
 
     return (
-        <CountryContext.Provider value={{ selectedCountry, selectedCountryName, selectCountry, clearCountry }}>
+        <CountryContext.Provider value={value}>
             {children}
         </CountryContext.Provider>
     )

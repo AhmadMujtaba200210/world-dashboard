@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CountryProvider } from "@/context/country-context";
+import { CountryDataProvider } from "@/hooks/use-country-data";
 
 export default function RootLayout({
   children,
@@ -39,9 +40,11 @@ export default function RootLayout({
         >
           <TooltipProvider>
             <CountryProvider>
-              <main className="w-full h-screen overflow-hidden bg-black text-white">
-                {children}
-              </main>
+              <CountryDataProvider>
+                <main className="w-full h-screen overflow-hidden bg-black text-white">
+                  {children}
+                </main>
+              </CountryDataProvider>
             </CountryProvider>
           </TooltipProvider>
         </ThemeProvider>
