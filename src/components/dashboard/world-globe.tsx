@@ -460,6 +460,36 @@ function markerSignature(marker: HtmlMarker): string {
   ].join("|")
 }
 
+// ─── Static accessor functions (never change, defined once) ───
+const POLYGON_SIDE_COLOR = () => "rgba(0, 0, 0, 0.5)"
+const POLYGON_STROKE_COLOR = () => "#222"
+const ARC_COLOR_FN = (d: object) => (d as GlobeArc | StrategicArc).color
+const ARC_STROKE_FN = (d: object) => {
+  const arc = d as GlobeArc | StrategicArc
+  return (arc as StrategicArc).type === "route" ? 0.75 : 0.5
+}
+const POINT_COLOR_FN = (d: object) => (d as GlobePoint).color
+const POINT_RADIUS_FN = (d: object) => (d as GlobePoint).size * 0.5
+const LABEL_LAT_FN = (d: object) => (d as MapLabel).lat
+const LABEL_LNG_FN = (d: object) => (d as MapLabel).lng
+const LABEL_TEXT_FN = (d: object) => (d as MapLabel).text
+const LABEL_COLOR_FN = (d: object) => (d as MapLabel).color
+const LABEL_ALTITUDE_FN = (d: object) => (d as MapLabel).altitude
+const LABEL_SIZE_FN = (d: object) => (d as MapLabel).size
+const LABEL_DOT_RADIUS_FN = (d: object) => (d as MapLabel).dotRadius
+const HEATMAP_POINTS_FN = (d: object) => (d as WeatherHeatLayer).points
+const HEATMAP_POINT_LAT_FN = (d: object) => (d as WeatherHeatPoint).lat
+const HEATMAP_POINT_LNG_FN = (d: object) => (d as WeatherHeatPoint).lng
+const HEATMAP_POINT_WEIGHT_FN = (d: object) => (d as WeatherHeatPoint).weight
+const HEATMAP_COLOR_FACTORY = () => (t: number) => `rgba(239, 68, 68, ${clamp(t, 0.06, 0.9).toFixed(3)})`
+const HTML_LAT_FN = (d: object) => (d as HtmlMarker).lat
+const HTML_LNG_FN = (d: object) => (d as HtmlMarker).lng
+const HTML_ALTITUDE_FN = (d: object) => (d as HtmlMarker).altitude
+const HTML_VISIBILITY_FN = (el: HTMLElement, isVisible: boolean) => {
+  el.style.opacity = isVisible ? "1" : "0"
+  el.style.pointerEvents = isVisible ? "auto" : "none"
+}
+
 export default function GodModeGlobe() {
   const globeInstance = useRef<GlobeMethods | undefined>(undefined)
   const [countries, setCountries] = useState<CountryCollection>({ features: [] })
@@ -1069,8 +1099,8 @@ export default function GodModeGlobe() {
     return feature === hoverD ? 0.04 : 0.01
   }, [selectedCountry, hoverD])
 
-  const polygonSideColorFn = useCallback(() => "rgba(0, 0, 0, 0.5)", [])
-  const polygonStrokeColorFn = useCallback(() => "#222", [])
+  const polygonSideColorFn = POLYGON_SIDE_COLOR
+  const polygonStrokeColorFn = POLYGON_STROKE_COLOR
 
   const polygonLabelFn = useCallback((d: object) => {
     if (isHoveringMarker) return ""
@@ -1112,7 +1142,7 @@ export default function GodModeGlobe() {
     })
   }, [])
 
-  const arcColorFn = useCallback((d: object) => (d as GlobeArc | StrategicArc).color, [])
+  const arcColorFn = ARC_COLOR_FN
   const arcLabelFn = useCallback((d: object) => {
     if (isHoveringMarker) return ""
     const arc = d as GlobeArc | StrategicArc
@@ -1131,13 +1161,10 @@ export default function GodModeGlobe() {
       </div>
     `
   }, [isHoveringMarker])
-  const arcStrokeFn = useCallback((d: object) => {
-    const arc = d as GlobeArc | StrategicArc
-    return (arc as StrategicArc).type === "route" ? 0.75 : 0.5
-  }, [])
+  const arcStrokeFn = ARC_STROKE_FN
 
-  const pointColorFn = useCallback((d: object) => (d as GlobePoint).color, [])
-  const pointRadiusFn = useCallback((d: object) => (d as GlobePoint).size * 0.5, [])
+  const pointColorFn = POINT_COLOR_FN
+  const pointRadiusFn = POINT_RADIUS_FN
   const pointLabelFn = useCallback((d: object) => {
     if (isHoveringMarker) return ""
     const point = d as GlobePoint
@@ -1149,13 +1176,13 @@ export default function GodModeGlobe() {
     `
   }, [isHoveringMarker])
 
-  const labelLatFn = useCallback((d: object) => (d as MapLabel).lat, [])
-  const labelLngFn = useCallback((d: object) => (d as MapLabel).lng, [])
-  const labelTextFn = useCallback((d: object) => (d as MapLabel).text, [])
-  const labelColorFn = useCallback((d: object) => (d as MapLabel).color, [])
-  const labelAltitudeFn = useCallback((d: object) => (d as MapLabel).altitude, [])
-  const labelSizeFn = useCallback((d: object) => (d as MapLabel).size, [])
-  const labelDotRadiusFn = useCallback((d: object) => (d as MapLabel).dotRadius, [])
+  const labelLatFn = LABEL_LAT_FN
+  const labelLngFn = LABEL_LNG_FN
+  const labelTextFn = LABEL_TEXT_FN
+  const labelColorFn = LABEL_COLOR_FN
+  const labelAltitudeFn = LABEL_ALTITUDE_FN
+  const labelSizeFn = LABEL_SIZE_FN
+  const labelDotRadiusFn = LABEL_DOT_RADIUS_FN
   const labelLabelFn = useCallback((d: object) => {
     if (isHoveringMarker) return ""
     const label = d as MapLabel
@@ -1167,19 +1194,16 @@ export default function GodModeGlobe() {
     `
   }, [isHoveringMarker])
 
-  const heatmapPointsFn = useCallback((d: object) => (d as WeatherHeatLayer).points, [])
-  const heatmapPointLatFn = useCallback((d: object) => (d as WeatherHeatPoint).lat, [])
-  const heatmapPointLngFn = useCallback((d: object) => (d as WeatherHeatPoint).lng, [])
-  const heatmapPointWeightFn = useCallback((d: object) => (d as WeatherHeatPoint).weight, [])
-  const heatmapColorFnFn = useCallback(() => (t: number) => `rgba(239, 68, 68, ${clamp(t, 0.06, 0.9).toFixed(3)})`, [])
+  const heatmapPointsFn = HEATMAP_POINTS_FN
+  const heatmapPointLatFn = HEATMAP_POINT_LAT_FN
+  const heatmapPointLngFn = HEATMAP_POINT_LNG_FN
+  const heatmapPointWeightFn = HEATMAP_POINT_WEIGHT_FN
+  const heatmapColorFn = HEATMAP_COLOR_FACTORY
 
-  const htmlLatFn = useCallback((d: object) => (d as HtmlMarker).lat, [])
-  const htmlLngFn = useCallback((d: object) => (d as HtmlMarker).lng, [])
-  const htmlAltitudeFn = useCallback((d: object) => (d as HtmlMarker).altitude, [])
-  const htmlVisibilityFn = useCallback((el: HTMLElement, isVisible: boolean) => {
-    el.style.opacity = isVisible ? "1" : "0"
-    el.style.pointerEvents = isVisible ? "auto" : "none"
-  }, [])
+  const htmlLatFn = HTML_LAT_FN
+  const htmlLngFn = HTML_LNG_FN
+  const htmlAltitudeFn = HTML_ALTITUDE_FN
+  const htmlVisibilityFn = HTML_VISIBILITY_FN
 
   const handleMouseLeave = useCallback(() => setActiveMarkerHoverId(null), [])
 
@@ -1255,7 +1279,7 @@ export default function GodModeGlobe() {
         heatmapPointLng={heatmapPointLngFn}
         heatmapPointWeight={heatmapPointWeightFn}
         heatmapBandwidth={1.35}
-        heatmapColorFn={heatmapColorFnFn}
+        heatmapColorFn={heatmapColorFn}
         heatmapColorSaturation={0.85}
         heatmapBaseAltitude={0.008}
         heatmapTopAltitude={0.11}

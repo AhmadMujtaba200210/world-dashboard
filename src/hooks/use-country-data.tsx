@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, useRef, type ReactNode } from "react"
 import { useCountry } from "@/context/country-context"
 import {
     fetchCountryBasicInfo,
@@ -108,8 +108,12 @@ export function CountryDataProvider({ children }: { children: ReactNode }) {
             .catch(() => setFxLoading(false))
     }, [])
 
+    const value = useMemo(() => ({
+        basic, macro, loading, error, fx, fxLoading
+    }), [basic, macro, loading, error, fx, fxLoading])
+
     return (
-        <CountryDataContext.Provider value={{ basic, macro, loading, error, fx, fxLoading }}>
+        <CountryDataContext.Provider value={value}>
             {children}
         </CountryDataContext.Provider>
     )
