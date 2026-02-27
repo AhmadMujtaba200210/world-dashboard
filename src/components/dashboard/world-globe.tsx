@@ -1,6 +1,6 @@
 "use client"
 
-import { type ElementType, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { type ElementType, memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
 import { useCountry, COUNTRY_DATA } from "@/context/country-context"
 import type { GlobeMethods } from "react-globe.gl"
@@ -722,13 +722,13 @@ export default function GodModeGlobe() {
       }
     }
     return {
-      countryLabels: 36,
-      cityLabels: 8,
-      waterLabels: 6,
-      aircraftMarkers: 45,
-      vesselMarkers: 55,
-      weatherMarkers: 8,
-      heatmapPoints: 8,
+      countryLabels: 24,
+      cityLabels: 6,
+      waterLabels: 5,
+      aircraftMarkers: 30,
+      vesselMarkers: 35,
+      weatherMarkers: 6,
+      heatmapPoints: 6,
     }
   }, [detailLevel])
 
@@ -741,14 +741,14 @@ export default function GodModeGlobe() {
     }
   }, [hoverD, selectedCountry])
 
-  const handlePolygonClick = (d: object) => {
+  const handlePolygonClick = useCallback((d: object) => {
     const feature = d as CountryFeature
     const iso = feature?.properties?.ISO_A3
     const name = feature?.properties?.ADMIN
     if (iso && name) {
       selectCountry(iso, name)
     }
-  }
+  }, [selectCountry])
 
   const routeArcs = useMemo<StrategicArc[]>(() => {
     if (!showRoutes) return []
@@ -1059,157 +1059,216 @@ export default function GodModeGlobe() {
     return el
   }, [])
 
+  // ─── Memoized Globe callback props ──────────────────────
+  // Stable references prevent unnecessary Three.js re-computations
+
+  const polygonAltitudeFn = useCallback((d: object) => {
+    const feature = d as CountryFeature
+    const iso = feature?.properties?.ISO_A3
+    if (iso === selectedCountry) return 0.06
+    return feature === hoverD ? 0.04 : 0.01
+  }, [selectedCountry, hoverD])
+
+  const polygonSideColorFn = useCallback(() => "rgba(0, 0, 0, 0.5)", [])
+  const polygonStrokeColorFn = useCallback(() => "#222", [])
+
+  const polygonLabelFn = useCallback((d: object) => {
+    if (isHoveringMarker) return ""
+    const feature = d as CountryFeature
+    const iso = feature?.properties?.ISO_A3
+    const meta = iso ? COUNTRY_DATA[iso] : undefined
+    return `
+      <div style="background:rgba(0,0,0,0.85);padding:10px 14px;border-radius:10px;border:1px solid #334155;backdrop-filter:blur(8px);min-width:180px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:4px">${feature.properties.ADMIN ?? "Unknown"}</div>
+        ${
+          meta
+            ? `
+              <div style="font-size:11px;color:#94a3b8">
+                <div>Index: ${meta.mainIndex}</div>
+                <div>Currency: ${meta.currency}</div>
+                <div>Region: ${meta.region}</div>
+              </div>
+            `
+            : `<div style="font-size:11px;color:#94a3b8">Click to explore</div>`
+        }
+      </div>
+    `
+  }, [isHoveringMarker])
+
+  const onPolygonHoverFn = useCallback((d: object | null) => {
+    if (activeMarkerHoverRef.current) return
+    setHoverD((d as CountryFeature | null) ?? null)
+  }, [])
+
+  const onPolygonClickFn = useCallback((d: object) => {
+    if (activeMarkerHoverRef.current) return
+    handlePolygonClick(d)
+  }, [handlePolygonClick])
+
+  const onZoomFn = useCallback((pov: { altitude: number }) => {
+    setCameraAltitude((prev) => {
+      const next = pov.altitude
+      return Math.abs(prev - next) > 0.05 ? next : prev
+    })
+  }, [])
+
+  const arcColorFn = useCallback((d: object) => (d as GlobeArc | StrategicArc).color, [])
+  const arcLabelFn = useCallback((d: object) => {
+    if (isHoveringMarker) return ""
+    const arc = d as GlobeArc | StrategicArc
+    const route = arc as StrategicArc
+    const isStrategic = route.type === "route"
+    return `
+      <div style="background:rgba(0,0,0,0.85);padding:8px 12px;border-radius:8px;border:1px solid ${arc.color};backdrop-filter:blur(8px)">
+        <div style="font-weight:700;font-size:12px;color:${arc.color}">${arc.name}</div>
+        <div style="font-size:10px;color:#94a3b8">${
+          isStrategic
+            ? `${routeCategoryLabel(route.category)} Route · ${route.details}`
+            : (arc as GlobeArc).type === "trade"
+              ? "Trade corridor"
+              : "Air corridor"
+        }</div>
+      </div>
+    `
+  }, [isHoveringMarker])
+  const arcStrokeFn = useCallback((d: object) => {
+    const arc = d as GlobeArc | StrategicArc
+    return (arc as StrategicArc).type === "route" ? 0.75 : 0.5
+  }, [])
+
+  const pointColorFn = useCallback((d: object) => (d as GlobePoint).color, [])
+  const pointRadiusFn = useCallback((d: object) => (d as GlobePoint).size * 0.5, [])
+  const pointLabelFn = useCallback((d: object) => {
+    if (isHoveringMarker) return ""
+    const point = d as GlobePoint
+    return `
+      <div style="background:rgba(0,0,0,0.85);padding:8px 12px;border-radius:8px;border:1px solid ${point.color};backdrop-filter:blur(8px)">
+        <div style="font-weight:700;font-size:12px;color:${point.color}">${point.name}</div>
+        <div style="font-size:10px;color:#94a3b8">${point.type.toUpperCase()}${point.details ? ` · ${point.details}` : ""}</div>
+      </div>
+    `
+  }, [isHoveringMarker])
+
+  const labelLatFn = useCallback((d: object) => (d as MapLabel).lat, [])
+  const labelLngFn = useCallback((d: object) => (d as MapLabel).lng, [])
+  const labelTextFn = useCallback((d: object) => (d as MapLabel).text, [])
+  const labelColorFn = useCallback((d: object) => (d as MapLabel).color, [])
+  const labelAltitudeFn = useCallback((d: object) => (d as MapLabel).altitude, [])
+  const labelSizeFn = useCallback((d: object) => (d as MapLabel).size, [])
+  const labelDotRadiusFn = useCallback((d: object) => (d as MapLabel).dotRadius, [])
+  const labelLabelFn = useCallback((d: object) => {
+    if (isHoveringMarker) return ""
+    const label = d as MapLabel
+    return `
+      <div style="background:rgba(0,0,0,0.85);padding:7px 11px;border-radius:8px;border:1px solid #334155;backdrop-filter:blur(8px)">
+        <div style="font-weight:700;font-size:12px;color:#e2e8f0">${label.text}</div>
+        <div style="font-size:10px;color:#94a3b8">${label.details}</div>
+      </div>
+    `
+  }, [isHoveringMarker])
+
+  const heatmapPointsFn = useCallback((d: object) => (d as WeatherHeatLayer).points, [])
+  const heatmapPointLatFn = useCallback((d: object) => (d as WeatherHeatPoint).lat, [])
+  const heatmapPointLngFn = useCallback((d: object) => (d as WeatherHeatPoint).lng, [])
+  const heatmapPointWeightFn = useCallback((d: object) => (d as WeatherHeatPoint).weight, [])
+  const heatmapColorFnFn = useCallback(() => (t: number) => `rgba(239, 68, 68, ${clamp(t, 0.06, 0.9).toFixed(3)})`, [])
+
+  const htmlLatFn = useCallback((d: object) => (d as HtmlMarker).lat, [])
+  const htmlLngFn = useCallback((d: object) => (d as HtmlMarker).lng, [])
+  const htmlAltitudeFn = useCallback((d: object) => (d as HtmlMarker).altitude, [])
+  const htmlVisibilityFn = useCallback((el: HTMLElement, isVisible: boolean) => {
+    el.style.opacity = isVisible ? "1" : "0"
+    el.style.pointerEvents = isVisible ? "auto" : "none"
+  }, [])
+
+  const handleMouseLeave = useCallback(() => setActiveMarkerHoverId(null), [])
+
+  // ─── Stable toggle callbacks for memoized ToggleButton ──
+  const toggleTrade = useCallback(() => setShowTrade(prev => !prev), [])
+  const togglePlanes = useCallback(() => setShowPlanes(prev => !prev), [])
+  const toggleNuclear = useCallback(() => setShowNuclear(prev => !prev), [])
+  const toggleBases = useCallback(() => setShowBases(prev => !prev), [])
+  const toggleRoutes = useCallback(() => setShowRoutes(prev => !prev), [])
+  const toggleWeather = useCallback(() => setShowWeather(prev => !prev), [])
+  const toggleHeatmap = useCallback(() => setShowHeatmap(prev => !prev), [])
+  const toggleCountryLabels = useCallback(() => setShowCountryLabels(prev => !prev), [])
+  const toggleCities = useCallback(() => setShowCities(prev => !prev), [])
+  const toggleWaterways = useCallback(() => setShowWaterways(prev => !prev), [])
+  const toggleUI = useCallback(() => setShowUI(prev => !prev), [])
+
   return (
     <div
       className="w-full h-full flex items-center justify-center bg-transparent cursor-pointer overflow-hidden rounded-xl relative group"
-      onMouseLeave={() => setActiveMarkerHoverId(null)}
+      onMouseLeave={handleMouseLeave}
     >
       <Globe
         ref={globeInstance}
         globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
         backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
         enablePointerInteraction={!isHoveringMarker}
-        onZoom={(pov) => {
-          setCameraAltitude((prev) => {
-            const next = pov.altitude
-            return Math.abs(prev - next) > 0.05 ? next : prev
-          })
-        }}
+        onZoom={onZoomFn}
 
         // Polygons
         polygonsData={countries.features}
-        polygonAltitude={(d: object) => {
-          const feature = d as CountryFeature
-          const iso = feature?.properties?.ISO_A3
-          if (iso === selectedCountry) return 0.06
-          return feature === hoverD ? 0.04 : 0.01
-        }}
+        polygonAltitude={polygonAltitudeFn}
         polygonCapColor={colorScale}
-        polygonSideColor={() => "rgba(0, 0, 0, 0.5)"}
-        polygonStrokeColor={() => "#222"}
-        polygonLabel={(d: object) => {
-          if (isHoveringMarker) return ""
-          const feature = d as CountryFeature
-          const iso = feature?.properties?.ISO_A3
-          const meta = iso ? COUNTRY_DATA[iso] : undefined
-          return `
-            <div style="background:rgba(0,0,0,0.85);padding:10px 14px;border-radius:10px;border:1px solid #334155;backdrop-filter:blur(8px);min-width:180px">
-              <div style="font-weight:700;font-size:14px;margin-bottom:4px">${feature.properties.ADMIN ?? "Unknown"}</div>
-              ${
-                meta
-                  ? `
-                    <div style="font-size:11px;color:#94a3b8">
-                      <div>Index: ${meta.mainIndex}</div>
-                      <div>Currency: ${meta.currency}</div>
-                      <div>Region: ${meta.region}</div>
-                    </div>
-                  `
-                  : `<div style="font-size:11px;color:#94a3b8">Click to explore</div>`
-              }
-            </div>
-          `
-        }}
-        onPolygonHover={(d) => {
-          if (isHoveringMarker) return
-          setHoverD((d as CountryFeature | null) ?? null)
-        }}
-        onPolygonClick={(d) => {
-          if (isHoveringMarker) return
-          handlePolygonClick(d as object)
-        }}
-        polygonsTransitionDuration={300}
+        polygonSideColor={polygonSideColorFn}
+        polygonStrokeColor={polygonStrokeColorFn}
+        polygonLabel={polygonLabelFn}
+        onPolygonHover={onPolygonHoverFn}
+        onPolygonClick={onPolygonClickFn}
+        polygonsTransitionDuration={200}
 
         // Arcs
         arcsData={activeArcs}
-        arcColor={(d: object) => (d as GlobeArc | StrategicArc).color}
-        arcLabel={(d: object) => {
-          if (isHoveringMarker) return ""
-          const arc = d as GlobeArc | StrategicArc
-          const route = arc as StrategicArc
-          const isStrategic = route.type === "route"
-          return `
-            <div style="background:rgba(0,0,0,0.85);padding:8px 12px;border-radius:8px;border:1px solid ${arc.color};backdrop-filter:blur(8px)">
-              <div style="font-weight:700;font-size:12px;color:${arc.color}">${arc.name}</div>
-              <div style="font-size:10px;color:#94a3b8">${
-                isStrategic
-                  ? `${routeCategoryLabel(route.category)} Route · ${route.details}`
-                  : (arc as GlobeArc).type === "trade"
-                    ? "Trade corridor"
-                    : "Air corridor"
-              }</div>
-            </div>
-          `
-        }}
+        arcColor={arcColorFn}
+        arcLabel={arcLabelFn}
         arcDashLength={0.38}
         arcDashGap={4}
-        arcDashAnimateTime={1500}
-        arcStroke={(d: object) => {
-          const arc = d as GlobeArc | StrategicArc
-          return (arc as StrategicArc).type === "route" ? 0.75 : 0.5
-        }}
+        arcDashAnimateTime={2000}
+        arcStroke={arcStrokeFn}
 
         // Static points
         pointsData={staticPoints}
-        pointColor={(d: object) => (d as GlobePoint).color}
-        pointRadius={(d: object) => (d as GlobePoint).size * 0.5}
+        pointColor={pointColorFn}
+        pointRadius={pointRadiusFn}
         pointAltitude={0.02}
-        pointsTransitionDuration={250}
-        pointLabel={(d: object) => {
-          if (isHoveringMarker) return ""
-          const point = d as GlobePoint
-          return `
-            <div style="background:rgba(0,0,0,0.85);padding:8px 12px;border-radius:8px;border:1px solid ${point.color};backdrop-filter:blur(8px)">
-              <div style="font-weight:700;font-size:12px;color:${point.color}">${point.name}</div>
-              <div style="font-size:10px;color:#94a3b8">${point.type.toUpperCase()}${point.details ? ` · ${point.details}` : ""}</div>
-            </div>
-          `
-        }}
+        pointsTransitionDuration={200}
+        pointLabel={pointLabelFn}
 
         // Labels
         labelsData={labelsData}
-        labelLat={(d: object) => (d as MapLabel).lat}
-        labelLng={(d: object) => (d as MapLabel).lng}
-        labelText={(d: object) => (d as MapLabel).text}
-        labelColor={(d: object) => (d as MapLabel).color}
-        labelAltitude={(d: object) => (d as MapLabel).altitude}
-        labelSize={(d: object) => (d as MapLabel).size}
-        labelDotRadius={(d: object) => (d as MapLabel).dotRadius}
-        labelLabel={(d: object) => {
-          if (isHoveringMarker) return ""
-          const label = d as MapLabel
-          return `
-            <div style="background:rgba(0,0,0,0.85);padding:7px 11px;border-radius:8px;border:1px solid #334155;backdrop-filter:blur(8px)">
-              <div style="font-weight:700;font-size:12px;color:#e2e8f0">${label.text}</div>
-              <div style="font-size:10px;color:#94a3b8">${label.details}</div>
-            </div>
-          `
-        }}
-        labelsTransitionDuration={250}
+        labelLat={labelLatFn}
+        labelLng={labelLngFn}
+        labelText={labelTextFn}
+        labelColor={labelColorFn}
+        labelAltitude={labelAltitudeFn}
+        labelSize={labelSizeFn}
+        labelDotRadius={labelDotRadiusFn}
+        labelLabel={labelLabelFn}
+        labelsTransitionDuration={200}
 
         // Weather heatmap
         heatmapsData={weatherHeatmaps}
-        heatmapPoints={(d: object) => (d as WeatherHeatLayer).points}
-        heatmapPointLat={(d: object) => (d as WeatherHeatPoint).lat}
-        heatmapPointLng={(d: object) => (d as WeatherHeatPoint).lng}
-        heatmapPointWeight={(d: object) => (d as WeatherHeatPoint).weight}
+        heatmapPoints={heatmapPointsFn}
+        heatmapPointLat={heatmapPointLatFn}
+        heatmapPointLng={heatmapPointLngFn}
+        heatmapPointWeight={heatmapPointWeightFn}
         heatmapBandwidth={1.35}
-        heatmapColorFn={() => (t: number) => `rgba(239, 68, 68, ${clamp(t, 0.06, 0.9).toFixed(3)})`}
+        heatmapColorFn={heatmapColorFnFn}
         heatmapColorSaturation={0.85}
         heatmapBaseAltitude={0.008}
         heatmapTopAltitude={0.11}
-        heatmapsTransitionDuration={450}
+        heatmapsTransitionDuration={300}
 
         // HTML markers
         htmlElementsData={liveMarkers}
-        htmlLat={(d: object) => (d as HtmlMarker).lat}
-        htmlLng={(d: object) => (d as HtmlMarker).lng}
-        htmlAltitude={(d: object) => (d as HtmlMarker).altitude}
+        htmlLat={htmlLatFn}
+        htmlLng={htmlLngFn}
+        htmlAltitude={htmlAltitudeFn}
         htmlElement={renderHtmlElement}
-        htmlElementVisibilityModifier={(el, isVisible) => {
-          el.style.opacity = isVisible ? "1" : "0"
-          el.style.pointerEvents = isVisible ? "auto" : "none"
-        }}
-        htmlTransitionDuration={220}
+        htmlElementVisibilityModifier={htmlVisibilityFn}
+        htmlTransitionDuration={180}
 
         atmosphereColor="lightskyblue"
         atmosphereAltitude={0.15}
@@ -1224,7 +1283,7 @@ export default function GodModeGlobe() {
         <div className="bg-black/60 backdrop-blur-md border border-white/10 p-2 rounded-lg flex flex-col gap-1 shadow-2xl max-h-[86vh] overflow-auto">
           <ToggleButton
             active={showTrade}
-            onClick={() => setShowTrade(!showTrade)}
+            onClick={toggleTrade}
             icon={Anchor}
             label="Trade + Ships"
             color="text-blue-400"
@@ -1234,7 +1293,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showPlanes}
-            onClick={() => setShowPlanes(!showPlanes)}
+            onClick={togglePlanes}
             icon={Plane}
             label="Air + Aircraft"
             color="text-amber-400"
@@ -1244,7 +1303,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showNuclear}
-            onClick={() => setShowNuclear(!showNuclear)}
+            onClick={toggleNuclear}
             icon={Radio}
             label="Nuclear Sites"
             color="text-red-400"
@@ -1253,7 +1312,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showBases}
-            onClick={() => setShowBases(!showBases)}
+            onClick={toggleBases}
             icon={Shield}
             label="Military Bases"
             color="text-violet-400"
@@ -1262,7 +1321,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showRoutes}
-            onClick={() => setShowRoutes(!showRoutes)}
+            onClick={toggleRoutes}
             icon={RouteIcon}
             label="Strategic Routes"
             color="text-cyan-300"
@@ -1272,7 +1331,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showWeather}
-            onClick={() => setShowWeather(!showWeather)}
+            onClick={toggleWeather}
             icon={CloudSun}
             label="Weather Updates"
             color="text-sky-300"
@@ -1282,7 +1341,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showHeatmap}
-            onClick={() => setShowHeatmap(!showHeatmap)}
+            onClick={toggleHeatmap}
             icon={Flame}
             label="Climate Heatmap"
             color="text-orange-400"
@@ -1292,7 +1351,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showCountryLabels}
-            onClick={() => setShowCountryLabels(!showCountryLabels)}
+            onClick={toggleCountryLabels}
             icon={MapPin}
             label="Country Names"
             color="text-slate-200"
@@ -1301,7 +1360,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showCities}
-            onClick={() => setShowCities(!showCities)}
+            onClick={toggleCities}
             icon={Building2}
             label="City Names"
             color="text-slate-300"
@@ -1310,7 +1369,7 @@ export default function GodModeGlobe() {
           />
           <ToggleButton
             active={showWaterways}
-            onClick={() => setShowWaterways(!showWaterways)}
+            onClick={toggleWaterways}
             icon={Waves}
             label="Oceans + Straits"
             color="text-blue-300"
@@ -1329,7 +1388,7 @@ export default function GodModeGlobe() {
       </div>
 
       <button
-        onClick={() => setShowUI(!showUI)}
+        onClick={toggleUI}
         className="absolute bottom-4 right-4 z-10 p-2 bg-black/60 backdrop-blur-md border border-white/10 rounded-full hover:bg-white/10 transition-colors shadow-lg"
       >
         {showUI ? (
@@ -1342,7 +1401,7 @@ export default function GodModeGlobe() {
   )
 }
 
-function ToggleButton({
+const ToggleButton = memo(function ToggleButton({
   active,
   onClick,
   icon: Icon,
@@ -1392,4 +1451,4 @@ function ToggleButton({
       {active && meta && <div className="pl-5 mt-0.5 text-[9px] text-slate-500 normal-case tracking-normal">{meta}</div>}
     </button>
   )
-}
+})
