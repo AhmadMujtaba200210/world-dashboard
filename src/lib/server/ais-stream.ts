@@ -300,8 +300,8 @@ class AISStreamManager {
       }
     });
 
-    ws.on("error", (err) => {
-      this.lastError = err instanceof Error ? err.message : "AIS websocket error.";
+    ws.on("error", () => {
+      this.lastError = "AIS websocket connection error.";
     });
 
     ws.on("close", () => {

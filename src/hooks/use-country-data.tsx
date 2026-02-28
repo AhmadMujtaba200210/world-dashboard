@@ -29,7 +29,8 @@ const CountryDataContext = createContext<CountryDataState>({
     fxLoading: false,
 })
 
-// In-memory cache for previously fetched country data
+// In-memory cache for previously fetched country data (bounded to prevent memory exhaustion)
+const MAX_CACHE_ENTRIES = 50
 const countryCache = new Map<string, { basic: CountryBasicInfo | null; macro: MacroIndicators | null }>()
 
 /**
@@ -85,7 +86,11 @@ export function CountryDataProvider({ children }: { children: ReactNode }) {
                 setBasic(basicData)
                 setMacro(macroData)
                 setLoading(false)
-                // Cache for future re-selections
+                // Cache for future re-selections (evict oldest if at capacity)
+                if (countryCache.size >= MAX_CACHE_ENTRIES) {
+                    const oldestKey = countryCache.keys().next().value
+                    if (oldestKey !== undefined) countryCache.delete(oldestKey)
+                }
                 countryCache.set(selectedCountry, { basic: basicData, macro: macroData })
             })
             .catch((err) => {

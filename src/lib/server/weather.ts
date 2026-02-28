@@ -163,7 +163,7 @@ async function refreshWeather(cache: WeatherCache) {
       if (result.value) stations.push(result.value)
       continue
     }
-    failures.push(result.reason instanceof Error ? result.reason.message : "Weather station failed.")
+    failures.push("Weather station fetch failed.")
   }
 
   stations.sort((a, b) => {
@@ -202,8 +202,8 @@ export async function getWeatherSnapshot(maxStations = DEFAULT_MAX_STATIONS): Pr
     try {
       await refreshWeather(cache)
       stale = false
-    } catch (err) {
-      cache.error = err instanceof Error ? err.message : "Weather refresh failed."
+    } catch {
+      cache.error = "Weather refresh failed."
       stale = true
     }
   }

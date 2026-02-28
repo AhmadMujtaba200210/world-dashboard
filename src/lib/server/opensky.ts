@@ -222,14 +222,14 @@ async function refreshCache(cache: OpenSkyCache) {
 
   try {
     auth = await getAuthHeader();
-  } catch (err) {
+  } catch {
     auth = {
       headers: {},
       usingAuth: false,
       message:
         "OpenSky auth failed. Falling back to anonymous mode. Check OPENSKY credentials.",
     };
-    cache.error = err instanceof Error ? err.message : "OpenSky auth failed.";
+    cache.error = "OpenSky authentication failed.";
   }
 
   const bbox = parseBbox();
@@ -272,8 +272,8 @@ export async function getOpenSkySnapshot(maxAircraft = DEFAULT_MAX_AIRCRAFT): Pr
     try {
       await refreshCache(cache);
       stale = false;
-    } catch (err) {
-      cache.error = err instanceof Error ? err.message : "Failed to fetch OpenSky data.";
+    } catch {
+      cache.error = "Failed to fetch aircraft data.";
       stale = true;
     }
   }
