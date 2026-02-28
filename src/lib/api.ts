@@ -47,7 +47,7 @@ export interface FxRates {
 
 // ─── Input Validation ─────────────────────────────────────
 
-const ISO_A3_PATTERN = /^[A-Za-z]{2,3}$/
+const ISO_A3_PATTERN = /^[A-Z]{2,3}$/
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/
 
 const ALLOWED_FLAG_HOSTS = ["flagcdn.com", "upload.wikimedia.org", "mainfacts.com"]
@@ -57,7 +57,7 @@ function sanitizeFlagUrl(url: unknown): string {
     try {
         const parsed = new URL(url)
         if (parsed.protocol !== "https:") return ""
-        if (!ALLOWED_FLAG_HOSTS.some((h) => parsed.hostname === h || parsed.hostname.endsWith(`.${h}`))) return ""
+        if (!ALLOWED_FLAG_HOSTS.some((h) => parsed.hostname === h)) return ""
         return url
     } catch {
         return ""

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 function parseMax(raw: string | null): number {
   const parsed = Number(raw)
   if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_MAX
-  return Math.min(Math.max(Math.trunc(parsed), 1), 100)
+  return Math.min(Math.trunc(parsed), 100)
 }
 
 export async function GET(request: NextRequest) {
