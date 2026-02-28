@@ -400,7 +400,7 @@ function StatusBar() {
                             )}
                             {/* Show flag if available */}
                             {basic?.flagPng && (
-                                <Image src={basic.flagPng} alt="" width={16} height={12} className="h-3 w-4 object-cover rounded-[1px]" unoptimized />
+                                <Image src={basic.flagPng} alt={`Flag of ${selectedCountryName}`} width={16} height={12} className="h-3 w-4 object-cover rounded-[1px]" />
                             )}
                             <span className="text-[10px] font-mono text-emerald-400">
                                 {selectedCountryName.toUpperCase()}

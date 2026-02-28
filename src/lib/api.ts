@@ -53,10 +53,19 @@ const FETCH_TIMEOUT_MS = 10_000
 
 const ALLOWED_FLAG_HOSTS = ["flagcdn.com", "upload.wikimedia.org", "mainfacts.com"]
 
-function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
-    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer))
+    try {
+        return await fetch(url, { signal: controller.signal })
+    } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+            throw new Error(`Request timed out after ${timeoutMs}ms`)
+        }
+        throw err
+    } finally {
+        clearTimeout(timer)
+    }
 }
 
 function sanitizeFlagUrl(url: unknown): string {
