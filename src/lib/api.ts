@@ -45,14 +45,59 @@ export interface FxRates {
     rates: Record<string, number>
 }
 
+// ─── Input Validation ─────────────────────────────────────
+
+const ISO_A3_PATTERN = /^[A-Z]{2,3}$/
+const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/
+const FETCH_TIMEOUT_MS = 10_000
+
+const ALLOWED_FLAG_HOSTS = ["flagcdn.com", "upload.wikimedia.org", "mainfacts.com"]
+
+async function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+        return await fetch(url, { signal: controller.signal })
+    } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+            throw new Error(`Request timed out after ${timeoutMs}ms`)
+        }
+        throw err
+    } finally {
+        clearTimeout(timer)
+    }
+}
+
+function sanitizeFlagUrl(url: unknown): string {
+    if (typeof url !== "string" || !url) return ""
+    try {
+        const parsed = new URL(url)
+        if (parsed.protocol !== "https:") return ""
+        if (!ALLOWED_FLAG_HOSTS.some((h) => parsed.hostname === h)) return ""
+        return url
+    } catch {
+        return ""
+    }
+}
+
+function isValidIsoCode(code: string): boolean {
+    return ISO_A3_PATTERN.test(code)
+}
+
+function isValidCurrencyCode(code: string): boolean {
+    return CURRENCY_CODE_PATTERN.test(code)
+}
+
 // ─── REST Countries API ───────────────────────────────────
 
 const REST_COUNTRIES_BASE = "https://restcountries.com/v3.1"
 
 export async function fetchCountryBasicInfo(isoA3: string): Promise<CountryBasicInfo | null> {
+    if (!isValidIsoCode(isoA3)) return null
+
     try {
-        const res = await fetch(
-            `${REST_COUNTRIES_BASE}/alpha/${isoA3}?fields=name,capital,population,region,subregion,currencies,flags,gini,area`
+        const res = await fetchWithTimeout(
+            `${REST_COUNTRIES_BASE}/alpha/${encodeURIComponent(isoA3)}?fields=name,capital,population,region,subregion,currencies,flags,gini,area`
         )
         if (!res.ok) return null
         const d = await res.json()
@@ -76,8 +121,8 @@ export async function fetchCountryBasicInfo(isoA3: string): Promise<CountryBasic
             region: d.region || "Unknown",
             subregion: d.subregion || "",
             currencies: currencyEntries,
-            flag: d.flags?.svg || "",
-            flagPng: d.flags?.png || "",
+            flag: sanitizeFlagUrl(d.flags?.svg),
+            flagPng: sanitizeFlagUrl(d.flags?.png),
             gini: giniYears.length > 0 ? giniYears[giniYears.length - 1] : null,
         }
     } catch {
@@ -107,10 +152,12 @@ async function fetchWorldBankIndicator(
     countryCode: string,
     indicatorCode: string
 ): Promise<{ value: number | null; year: string }> {
+    if (!isValidIsoCode(countryCode)) return { value: null, year: "" }
+
     try {
         // Fetch last 5 years to find most recent non-null value
-        const res = await fetch(
-            `${WB_BASE}/country/${countryCode}/indicator/${indicatorCode}?format=json&per_page=5&date=2019:2025`
+        const res = await fetchWithTimeout(
+            `${WB_BASE}/country/${encodeURIComponent(countryCode)}/indicator/${encodeURIComponent(indicatorCode)}?format=json&per_page=5&date=2019:2025`
         )
         if (!res.ok) return { value: null, year: "" }
 
@@ -169,8 +216,10 @@ export async function fetchMacroIndicators(isoA3: string): Promise<MacroIndicato
 // ─── Frankfurter FX API ───────────────────────────────────
 
 export async function fetchFxRates(baseCurrency: string = "USD"): Promise<FxRates | null> {
+    if (!isValidCurrencyCode(baseCurrency)) return null
+
     try {
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${baseCurrency}`)
+        const res = await fetchWithTimeout(`https://api.frankfurter.app/latest?from=${encodeURIComponent(baseCurrency)}`)
         if (!res.ok) return null
         return await res.json()
     } catch {

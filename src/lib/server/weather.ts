@@ -3,6 +3,7 @@ import { WEATHER_HUBS, type WeatherHub } from "@/lib/map-overlays"
 const OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 const WEATHER_REFRESH_MS = 10 * 60 * 1000
 const DEFAULT_MAX_STATIONS = 20
+const FETCH_TIMEOUT_MS = 10_000
 
 export interface LiveWeatherStation {
   id: string
@@ -120,7 +121,12 @@ async function fetchHubWeather(hub: WeatherHub): Promise<LiveWeatherStation | nu
   )
   url.searchParams.set("timezone", "auto")
 
-  const response = await fetch(url.toString(), { cache: "no-store" })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  const response = await fetch(url.toString(), { cache: "no-store", signal: controller.signal })
+
+  clearTimeout(timer)
   if (!response.ok) {
     throw new Error(`Open-Meteo request failed (${response.status})`)
   }
@@ -163,7 +169,7 @@ async function refreshWeather(cache: WeatherCache) {
       if (result.value) stations.push(result.value)
       continue
     }
-    failures.push(result.reason instanceof Error ? result.reason.message : "Weather station failed.")
+    failures.push("Weather station fetch failed.")
   }
 
   stations.sort((a, b) => {
@@ -202,8 +208,8 @@ export async function getWeatherSnapshot(maxStations = DEFAULT_MAX_STATIONS): Pr
     try {
       await refreshWeather(cache)
       stale = false
-    } catch (err) {
-      cache.error = err instanceof Error ? err.message : "Weather refresh failed."
+    } catch {
+      cache.error = "Weather refresh failed."
       stale = true
     }
   }

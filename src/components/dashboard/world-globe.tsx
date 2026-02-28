@@ -543,9 +543,7 @@ export default function GodModeGlobe() {
   })
 
   useEffect(() => {
-    fetch(
-      "https://raw.githubusercontent.com/vasturiano/react-globe.gl/master/example/datasets/ne_110m_admin_0_countries.geojson"
-    )
+    fetch("/ne_110m_admin_0_countries.geojson")
       .then((res) => res.json())
       .then((data: unknown) => {
         const candidate = data as Partial<CountryCollection> | null

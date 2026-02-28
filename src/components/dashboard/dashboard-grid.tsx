@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import Image from "next/image"
 import { Separator } from "@/components/ui/separator"
 import GodModeGlobe from "./world-globe"
 import { useCountry, COUNTRY_DATA } from "@/context/country-context"
@@ -12,7 +13,7 @@ import {
 } from "lucide-react"
 
 // ─── Shared Panel Shell ───────────────────────────────────
-function Panel({ icon: Icon, label, color, children }: {
+const Panel = React.memo(function Panel({ icon: Icon, label, color, children }: {
     icon: React.ElementType
     label: string
     color: string
@@ -29,10 +30,10 @@ function Panel({ icon: Icon, label, color, children }: {
             </div>
         </div>
     )
-}
+})
 
 // ─── Row: key-value data row ──────────────────────────────
-function Row({ label, value, valueColor = "text-slate-200" }: {
+const Row = React.memo(function Row({ label, value, valueColor = "text-slate-200" }: {
     label: string, value: string, valueColor?: string
 }) {
     return (
@@ -41,17 +42,17 @@ function Row({ label, value, valueColor = "text-slate-200" }: {
             <span className={`text-[10px] font-mono ${valueColor}`}>{value}</span>
         </div>
     )
-}
+})
 
 // ─── Loading Row ──────────────────────────────────────────
-function LoadingRow({ label }: { label: string }) {
+const LoadingRow = React.memo(function LoadingRow({ label }: { label: string }) {
     return (
         <div className="flex items-center justify-between px-3 py-[5px] border-b border-white/[0.03]">
             <span className="text-[10px] text-slate-500">{label}</span>
             <div className="h-2.5 w-16 bg-white/[0.06] rounded animate-pulse" />
         </div>
     )
-}
+})
 
 // ─── Macro Panel (LIVE: World Bank + REST Countries) ──────
 function MacroPanel() {
@@ -399,7 +400,7 @@ function StatusBar() {
                             )}
                             {/* Show flag if available */}
                             {basic?.flagPng && (
-                                <img src={basic.flagPng} alt="" className="h-3 w-4 object-cover rounded-[1px]" />
+                                <Image src={basic.flagPng} alt={`Flag of ${selectedCountryName}`} width={16} height={12} className="h-3 w-4 object-cover rounded-[1px]" />
                             )}
                             <span className="text-[10px] font-mono text-emerald-400">
                                 {selectedCountryName.toUpperCase()}
