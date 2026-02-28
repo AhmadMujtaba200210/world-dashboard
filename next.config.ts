@@ -1,6 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "flagcdn.com" },
+      { protocol: "https", hostname: "upload.wikimedia.org" },
+      { protocol: "https", hostname: "mainfacts.com" },
+    ],
+  },
   headers: async () => [
     {
       source: "/(.*)",
@@ -25,7 +32,7 @@ const nextConfig: NextConfig = {
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob: https://flagcdn.com https://upload.wikimedia.org https://mainfacts.com",
             "font-src 'self'",
-            "connect-src 'self' https://restcountries.com https://api.worldbank.org https://api.frankfurter.app https://raw.githubusercontent.com https://api.open-meteo.com https://opensky-network.org https://auth.opensky-network.org",
+            "connect-src 'self' https://restcountries.com https://api.worldbank.org https://api.frankfurter.app https://api.open-meteo.com https://opensky-network.org https://auth.opensky-network.org",
             "frame-ancestors 'none'",
             "base-uri 'self'",
             "form-action 'self'",

@@ -49,8 +49,15 @@ export interface FxRates {
 
 const ISO_A3_PATTERN = /^[A-Z]{2,3}$/
 const CURRENCY_CODE_PATTERN = /^[A-Z]{3}$/
+const FETCH_TIMEOUT_MS = 10_000
 
 const ALLOWED_FLAG_HOSTS = ["flagcdn.com", "upload.wikimedia.org", "mainfacts.com"]
+
+function fetchWithTimeout(url: string, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer))
+}
 
 function sanitizeFlagUrl(url: unknown): string {
     if (typeof url !== "string" || !url) return ""
@@ -80,7 +87,7 @@ export async function fetchCountryBasicInfo(isoA3: string): Promise<CountryBasic
     if (!isValidIsoCode(isoA3)) return null
 
     try {
-        const res = await fetch(
+        const res = await fetchWithTimeout(
             `${REST_COUNTRIES_BASE}/alpha/${encodeURIComponent(isoA3)}?fields=name,capital,population,region,subregion,currencies,flags,gini,area`
         )
         if (!res.ok) return null
@@ -140,7 +147,7 @@ async function fetchWorldBankIndicator(
 
     try {
         // Fetch last 5 years to find most recent non-null value
-        const res = await fetch(
+        const res = await fetchWithTimeout(
             `${WB_BASE}/country/${encodeURIComponent(countryCode)}/indicator/${encodeURIComponent(indicatorCode)}?format=json&per_page=5&date=2019:2025`
         )
         if (!res.ok) return { value: null, year: "" }
@@ -203,7 +210,7 @@ export async function fetchFxRates(baseCurrency: string = "USD"): Promise<FxRate
     if (!isValidCurrencyCode(baseCurrency)) return null
 
     try {
-        const res = await fetch(`https://api.frankfurter.app/latest?from=${encodeURIComponent(baseCurrency)}`)
+        const res = await fetchWithTimeout(`https://api.frankfurter.app/latest?from=${encodeURIComponent(baseCurrency)}`)
         if (!res.ok) return null
         return await res.json()
     } catch {

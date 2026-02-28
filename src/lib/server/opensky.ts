@@ -5,6 +5,7 @@ const OPEN_SKY_TOKEN_URL =
 const OPEN_SKY_AUTH_REFRESH_MS = 90 * 1000;
 const OPEN_SKY_ANON_REFRESH_MS = 15 * 60 * 1000;
 const DEFAULT_MAX_AIRCRAFT = 180;
+const FETCH_TIMEOUT_MS = 15_000;
 
 export interface LiveAircraft {
   id: string;
@@ -137,12 +138,18 @@ async function getAuthHeader(): Promise<{
     client_secret: clientSecret,
   });
 
+  const tokenController = new AbortController();
+  const tokenTimer = setTimeout(() => tokenController.abort(), FETCH_TIMEOUT_MS);
+
   const tokenRes = await fetch(OPEN_SKY_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: form.toString(),
     cache: "no-store",
+    signal: tokenController.signal,
   });
+
+  clearTimeout(tokenTimer);
 
   if (!tokenRes.ok) {
     throw new Error(`OpenSky token request failed (${tokenRes.status})`);
@@ -241,10 +248,16 @@ async function refreshCache(cache: OpenSkyCache) {
     url.searchParams.set("lomax", String(bbox.lomax));
   }
 
+  const statesController = new AbortController();
+  const statesTimer = setTimeout(() => statesController.abort(), FETCH_TIMEOUT_MS);
+
   const response = await fetch(url.toString(), {
     headers: auth.headers,
     cache: "no-store",
+    signal: statesController.signal,
   });
+
+  clearTimeout(statesTimer);
 
   if (!response.ok) {
     throw new Error(`OpenSky states request failed (${response.status})`);
